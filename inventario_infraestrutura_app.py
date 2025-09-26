@@ -37,10 +37,22 @@ st.markdown(f"""
             visibility: hidden;
         }}
 
+        div[data-testid="stHeader"] {{
+            display: none;
+        }}
+
+        div[data-testid="stDecoration"] {{
+            display: none;
+        }}
+
+        div[data-testid="stTopBar"] {{
+            background-color: {COLOR_PRIMARY};
+        }}
+
         /* Título do inventário */
         .stApp > header {{
             background-color: {COLOR_PRIMARY};
-            padding: 1rem;
+            padding: .2rem;
             color: white;
             border-bottom: 5px solid {COLOR_TEXT_DARK};
         }}
