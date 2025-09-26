@@ -17,6 +17,32 @@ st.set_page_config(
 # Inserção de CSS customizado
 st.markdown(f"""
     <style>
+         /* ##### CÓDIGO DEFINITIVO PARA REMOVER ELEMENTOS DO STREAMLIT ##### */
+
+        /* Remove a barra superior com o botão "Fork" e outros links */
+        /* Este é o seletor principal para a barra que você quer remover */
+        div[data-testid="stHeader"] {{
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
+        }}
+
+        /* Remove a fina linha decorativa no topo da página */
+        div[data-testid="stDecoration"] {{
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
+        }}
+        
+        /* Esconde o rodapé "Made with Streamlit" */
+        footer {{
+            visibility: hidden;
+            height: 0%;
+        }}
+        
+        /* ############################################################### */
+
+
         /* Fundo da página */
         .stApp {{
             background-color: {COLOR_BACKGROUND};
@@ -28,23 +54,7 @@ st.markdown(f"""
             color: {COLOR_TEXT_DARK};
         }}
         
-        /* Cabeçalho superior */
-        div[data-testid="stTopBar"] {{
-            background-color: {COLOR_PRIMARY};
-        }}
-
-        footer {{
-            visibility: hidden;
-        }}
-
-        div[data-testid="stHeader"] {{
-            display: none;
-        }}
-
-        div[data-testid="stDecoration"] {{
-            display: none;
-        }}
-
+        /* Cabeçalho superior da aplicação (o seu, customizado) */
         div[data-testid="stTopBar"] {{
             background-color: {COLOR_PRIMARY};
         }}
@@ -52,7 +62,7 @@ st.markdown(f"""
         /* Título do inventário */
         .stApp > header {{
             background-color: {COLOR_PRIMARY};
-            padding: .2rem;
+            padding: 1rem;
             color: white;
             border-bottom: 5px solid {COLOR_TEXT_DARK};
         }}
