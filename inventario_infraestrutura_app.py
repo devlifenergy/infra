@@ -33,6 +33,10 @@ st.markdown(f"""
             background-color: {COLOR_PRIMARY};
         }}
 
+        footer {{
+            visibility: hidden;
+        }}
+
         /* Título do inventário */
         .stApp > header {{
             background-color: {COLOR_PRIMARY};
