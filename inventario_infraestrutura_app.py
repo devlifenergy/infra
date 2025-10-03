@@ -123,11 +123,10 @@ with st.container(border=True):
     st.markdown("<h3 style='text-align: center;'>Identificação do Preenchimento</h3>", unsafe_allow_html=True)
     col1_form, col2_form = st.columns(2)
     with col1_form:
-        organizacao = st.text_input("Organização:")
-        setor_equipe = st.text_input("Setor/Equipe:")
+        respondente = st.text_input("Respondente:", key="input_respondente")
+        data = st.text_input("Data:", datetime.now().strftime('%d/%m/%Y'))
     with col2_form:
-        respondente = st.text_input("Respondente:")
-        data_turno = st.text_input("Data / Turno:", value=datetime.now().strftime('%Y-%m-%d'))
+        organizacao_coletora = st.text_input("Organização Coletora:", "Instituto Wedja de Socionomia", disabled=True)
 
 # --- INSTRUÇÕES ---
 st.subheader("Instruções de Preenchimento")
