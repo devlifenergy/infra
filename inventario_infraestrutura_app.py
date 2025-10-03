@@ -79,29 +79,28 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONEXÃO COM GOOGLE SHEETS (MÉTODO COM CACHE) ---
-@st.cache_resource
-def connect_to_gsheet():
-    """Conecta ao Google Sheets e retorna os objetos das abas."""
-    try:
-        creds_dict = dict(st.secrets["google_credentials"])
-        creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
-        
-        gc = gspread.service_account_from_dict(creds_dict)
-        
-        # ##### NOME DA PLANILHA DE DESTINO #####
-        spreadsheet = gc.open("Respostas App Infraestrutura") # <--- APONTA PARA A PLANILHA CORRETA
-        
-        # Retorna as duas abas
-        return spreadsheet.worksheet("Infraestrutura")
-    except Exception as e:
-        st.error(f"Erro ao conectar com o Google Sheets: {e}")
-        return None, None
+# --- CONEXÃO COM GOOGLE SHEETS  ---
+try:
+    # Cria uma cópia editável das credenciais
+    creds_dict = dict(st.secrets["google_credentials"])
+    # Corrige a formatação da chave privada
+    creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+    
+    # Autentica no Google
+    gc = gspread.service_account_from_dict(creds_dict)
+    
+    # Abre a planilha pelo nome exato
+    spreadsheet = gc.open("Respostas Formularios")
+    
+    # Seleciona a primeira aba
+    worksheet = spreadsheet.sheet1
 
-ws_respostas = connect_to_gsheet()
-
-if ws_respostas is None:
+except Exception as e:
+    st.error(f"Erro ao conectar com o Google Sheets: {e}")
     st.stop()
+
+# Seleciona as abas fora da função de cache
+ws_respostas = spreadsheet.worksheet("Infraestrutura")
 
 
 # --- CABEÇALHO DA APLICAÇÃO ---
