@@ -254,6 +254,7 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
                 ws_respostas.append_rows(respostas_para_enviar, value_input_option='USER_ENTERED')
 
                 st.success("Suas respostas foram enviadas com sucesso!")
+                st.info("Você já pode fechar esta janela.")
                 st.balloons()
             except Exception as e:
                 st.error(f"Erro ao enviar dados para a planilha: {e}")
