@@ -202,7 +202,7 @@ def registrar_resposta(item_id, key):
     st.session_state.respostas[item_id] = st.session_state[key]
 
 for bloco in blocos:
-    with st.expander(f"Dimensão: {bloco}", expanded=bloco == blocos[0]):
+    with st.expander(f"{bloco}", expanded=bloco == blocos[0]):
         df_bloco = df_itens[df_itens["Bloco"] == bloco]
         for _, row in df_bloco.iterrows():
             key = row["ID"]
@@ -212,8 +212,6 @@ for bloco in blocos:
                 label, options=["N/A", 1, 2, 3, 4, 5], horizontal=True,
                 key=widget_key, on_change=registrar_resposta, args=(key, widget_key)
             )
-
-observacoes = st.text_area("Observações (opcional):")
 
 # --- BOTÃO DE CÁLCULO E ENVIO PARA GOOGLE SHEETS ---
 if st.button("Finalizar e Enviar Respostas", type="primary"):
@@ -232,6 +230,43 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
                 "Item": row["Item"],
                 "Resposta": resposta_usuario if resposta_usuario is not None else "N/A"
             })
+        dfr = pd.DataFrame(respostas_list)
+
+        dfr_numerico = dfr[pd.to_numeric(dfr['Resposta'], errors='coerce').notna()].copy()
+        if not dfr_numerico.empty:
+            dfr_numerico['Resposta'] = dfr_numerico['Resposta'].astype(int)
+            def ajustar_reverso(row):
+                return (6 - row["Resposta"]) if row["Reverso"] == "SIM" else row["Resposta"]
+            dfr_numerico["Pontuação"] = dfr_numerico.apply(ajustar_reverso, axis=1)
+
+            media_cultura = dfr_numerico[dfr_numerico['Dimensão'] == 'Cultura Organizacional']['Pontuação'].mean()
+            media_esg_s = dfr_numerico[dfr_numerico['Dimensão'] == 'ESG — Pilar Social']['Pontuação'].mean()
+            media_esg_g = dfr_numerico[dfr_numerico['Dimensão'] == 'ESG — Governança']['Pontuação'].mean()
+            media_nr1 = dfr_numerico[dfr_numerico['Dimensão'] == 'NR-1 — GRO/PGR']['Pontuação'].mean()
+            media_frps = dfr_numerico[dfr_numerico['Dimensão'] == 'Fatores de Risco Psicossocial (FRPS)']['Pontuação'].mean()
+            media_esg_total = (media_esg_s + media_esg_g) / 2 if pd.notna(media_esg_s) and pd.notna(media_esg_g) else 0
+            score_global = (0.40 * media_cultura) + (0.25 * media_esg_total) + (0.35 * media_nr1)
+            
+            if score_global >= 4.20: interpretacao = "Excelente"
+            elif score_global >= 3.60: interpretacao = "Bom"
+            elif score_global >= 2.80: interpretacao = "Atenção"
+            else: interpretacao = "Crítico"
+
+            resumo_dimensoes = pd.DataFrame({
+                "Dimensão": ["Score Global Ponderado", "Cultura Organizacional", "ESG — Total", "NR-1 — GRO/PGR", "Proteção FRPS (Reverso)"],
+                "Média": [score_global, media_cultura, media_esg_total, media_nr1, media_frps]
+            })
+        else:
+            score_global, interpretacao = 0, "N/A"
+            resumo_dimensoes = pd.DataFrame(columns=["Dimensão", "Média"])
+
+        st.metric(f"Score Global: {interpretacao}", f"{score_global:.2f}")
+
+        if not resumo_dimensoes.empty:
+            st.subheader("Média por Dimensão")
+            st.dataframe(resumo_dimensoes, use_container_width=True, hide_index=True)
+            st.subheader("Gráfico Comparativo por Dimensão")
+            st.bar_chart(resumo_dimensoes.set_index("Dimensão")["Média"])
         
         # Envia para o Google Sheets
         with st.spinner("Enviando dados para a planilha..."):
@@ -241,10 +276,7 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
                 for item in respostas_list:
                     respostas_para_enviar.append([
                         timestamp_str,
-                        organizacao,
-                        setor_equipe,
                         respondente,
-                        data_turno,
                         item["Bloco"],
                         item["Item"],
                         item["Resposta"]
@@ -252,10 +284,6 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
                 
                 ws_respostas.append_rows(respostas_para_enviar, value_input_option='USER_ENTERED')
 
-                if observacoes:
-                    dados_obs = [[timestamp_str, respondente, observacoes]]
-                    ws_observacoes.append_rows(dados_obs, value_input_option='USER_ENTERED')
-                
                 st.success("Suas respostas foram enviadas com sucesso!")
                 st.balloons()
             except Exception as e:
