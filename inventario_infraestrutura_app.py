@@ -214,13 +214,17 @@ for bloco in blocos:
             )
 
 # --- BOTÃO DE CÁLCULO E ENVIO PARA GOOGLE SHEETS ---
+# --- BOTÃO DE CÁLCULO, ENVIO E VISUALIZAÇÃO ---
 if st.button("Finalizar e Enviar Respostas", type="primary"):
     if not st.session_state.respostas:
         st.warning("Nenhuma resposta foi preenchida.")
     else:
+        # ----------------------------------------------------------------------
+        # PARTE 1: ENVIO PARA O GOOGLE SHEETS (LÓGICA ORIGINAL)
+        # ----------------------------------------------------------------------
         st.subheader("Enviando Respostas...")
-
-        # Formata os dados para envio
+        
+        # Formata os dados para a lista de envio
         respostas_list = []
         for index, row in df_itens.iterrows():
             item_id = row['ID']
@@ -228,51 +232,16 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
             respostas_list.append({
                 "Bloco": row["Bloco"],
                 "Item": row["Item"],
+                "Reverso": row["Reverso"], # Adicionado para cálculo
                 "Resposta": resposta_usuario if resposta_usuario is not None else "N/A"
             })
-        dfr = pd.DataFrame(respostas_list)
-
-        dfr_numerico = dfr[pd.to_numeric(dfr['Resposta'], errors='coerce').notna()].copy()
-        if not dfr_numerico.empty:
-            dfr_numerico['Resposta'] = dfr_numerico['Resposta'].astype(int)
-            def ajustar_reverso(row):
-                return (6 - row["Resposta"]) if row["Reverso"] == "SIM" else row["Resposta"]
-            dfr_numerico["Pontuação"] = dfr_numerico.apply(ajustar_reverso, axis=1)
-
-            media_cultura = dfr_numerico[dfr_numerico['Dimensão'] == 'Cultura Organizacional']['Pontuação'].mean()
-            media_esg_s = dfr_numerico[dfr_numerico['Dimensão'] == 'ESG — Pilar Social']['Pontuação'].mean()
-            media_esg_g = dfr_numerico[dfr_numerico['Dimensão'] == 'ESG — Governança']['Pontuação'].mean()
-            media_nr1 = dfr_numerico[dfr_numerico['Dimensão'] == 'NR-1 — GRO/PGR']['Pontuação'].mean()
-            media_frps = dfr_numerico[dfr_numerico['Dimensão'] == 'Fatores de Risco Psicossocial (FRPS)']['Pontuação'].mean()
-            media_esg_total = (media_esg_s + media_esg_g) / 2 if pd.notna(media_esg_s) and pd.notna(media_esg_g) else 0
-            score_global = (0.40 * media_cultura) + (0.25 * media_esg_total) + (0.35 * media_nr1)
-            
-            if score_global >= 4.20: interpretacao = "Excelente"
-            elif score_global >= 3.60: interpretacao = "Bom"
-            elif score_global >= 2.80: interpretacao = "Atenção"
-            else: interpretacao = "Crítico"
-
-            resumo_dimensoes = pd.DataFrame({
-                "Dimensão": ["Score Global Ponderado", "Cultura Organizacional", "ESG — Total", "NR-1 — GRO/PGR", "Proteção FRPS (Reverso)"],
-                "Média": [score_global, media_cultura, media_esg_total, media_nr1, media_frps]
-            })
-        else:
-            score_global, interpretacao = 0, "N/A"
-            resumo_dimensoes = pd.DataFrame(columns=["Dimensão", "Média"])
-
-        st.metric(f"Score Global: {interpretacao}", f"{score_global:.2f}")
-
-        if not resumo_dimensoes.empty:
-            st.subheader("Média por Dimensão")
-            st.dataframe(resumo_dimensoes, use_container_width=True, hide_index=True)
-            st.subheader("Gráfico Comparativo por Dimensão")
-            st.bar_chart(resumo_dimensoes.set_index("Dimensão")["Média"])
-        
+                
         # Envia para o Google Sheets
         with st.spinner("Enviando dados para a planilha..."):
             try:
                 timestamp_str = datetime.now().isoformat(timespec="seconds")
                 respostas_para_enviar = []
+                # Usamos a `respostas_list` já formatada
                 for item in respostas_list:
                     respostas_para_enviar.append([
                         timestamp_str,
@@ -288,3 +257,51 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
                 st.balloons()
             except Exception as e:
                 st.error(f"Erro ao enviar dados para a planilha: {e}")
+        
+        # ----------------------------------------------------------------------
+        # PARTE 2: CÁLCULO E EXIBIÇÃO DOS RESULTADOS (NOVO TRECHO ADAPTADO)
+        # ----------------------------------------------------------------------
+        st.subheader("Análise dos Resultados")
+
+        # Cria um DataFrame a partir da lista de respostas já populada
+        dfr = pd.DataFrame(respostas_list)
+
+        # Filtra apenas as respostas que são numéricas para poder calcular
+        dfr_numerico = dfr[pd.to_numeric(dfr['Resposta'], errors='coerce').notna()].copy()
+        
+        if not dfr_numerico.empty:
+            dfr_numerico['Resposta'] = dfr_numerico['Resposta'].astype(int)
+
+            # Função para inverter a pontuação de itens reversos (escala de 1 a 5)
+            def ajustar_reverso(row):
+                return (6 - row["Resposta"]) if row["Reverso"] == "SIM" else row["Resposta"]
+            
+            # Aplica a função para criar a coluna de pontuação final
+            dfr_numerico["Pontuação"] = dfr_numerico.apply(ajustar_reverso, axis=1)
+
+            # Calcula a pontuação média geral (Score Global)
+            score_global = dfr_numerico['Pontuação'].mean()
+            
+            # Define a interpretação com base no Score Global
+            if score_global >= 4.20: interpretacao = "Excelente"
+            elif score_global >= 3.60: interpretacao = "Bom"
+            elif score_global >= 2.80: interpretacao = "Atenção"
+            else: interpretacao = "Crítico"
+
+            # Prepara o resumo das médias por Bloco
+            resumo_blocos = dfr_numerico.groupby("Bloco")['Pontuação'].mean().reset_index()
+            resumo_blocos = resumo_blocos.rename(columns={"Pontuação": "Média"})
+
+            # Exibe a métrica principal do Score Global
+            st.metric(f"Score Global: {interpretacao}", f"{score_global:.2f}")
+
+            # Exibe a tabela e o gráfico com os resultados
+            if not resumo_blocos.empty:
+                st.subheader("Média por Bloco")
+                st.dataframe(resumo_blocos, use_container_width=True, hide_index=True)
+                
+                st.subheader("Gráfico Comparativo por Bloco")
+                st.bar_chart(resumo_blocos.set_index("Bloco")["Média"])
+        else:
+            # Caso não haja respostas numéricas para analisar
+            st.warning("Não há respostas numéricas suficientes para gerar uma análise.")
