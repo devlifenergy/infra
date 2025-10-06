@@ -246,6 +246,8 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
                     respostas_para_enviar.append([
                         timestamp_str,
                         respondente,
+                        data,
+                        organizacao_coletora,
                         item["Bloco"],
                         item["Item"],
                         item["Resposta"]
