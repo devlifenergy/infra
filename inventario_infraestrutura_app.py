@@ -202,8 +202,14 @@ def registrar_resposta(item_id, key):
     st.session_state.respostas[item_id] = st.session_state[key]
 
 for bloco in blocos:
-    with st.expander(f"{bloco["ID"]}", expanded=bloco == blocos[0]):
-        df_bloco = df_itens[df_itens["Bloco"] == bloco]
+    # Pega o sub-dataframe para o bloco atual
+    df_bloco = df_itens[df_itens["Bloco"] == bloco]
+    
+    # Extrai o prefixo (as duas primeiras letras) do ID do primeiro item do bloco
+    prefixo_bloco = df_bloco['ID']
+    
+    # Usa o prefixo como o título do expander
+    with st.expander(f"{prefixo_bloco}", expanded=bloco == blocos[0]):
         for _, row in df_bloco.iterrows():
             key = row["ID"]
             label = f'({row["ID"]}) ' + row["Item"] + (' (R)' if row["Reverso"] == "SIM" else "")
