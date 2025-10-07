@@ -202,7 +202,7 @@ def registrar_resposta(item_id, key):
     st.session_state.respostas[item_id] = st.session_state[key]
 
 for bloco in blocos:
-    with st.expander(f"{bloco}", expanded=bloco == blocos[0]):
+    with st.expander(expanded=bloco == blocos[0]):
         df_bloco = df_itens[df_itens["Bloco"] == bloco]
         for _, row in df_bloco.iterrows():
             key = row["ID"]
@@ -227,10 +227,10 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
         # Formata os dados para a lista de envio
         respostas_list = []
         for index, row in df_itens.iterrows():
-            item_id = row['ID']
+            item_id = row['Bloco']
             resposta_usuario = st.session_state.respostas.get(item_id)
             respostas_list.append({
-                "Bloco": row["Bloco"],
+                "Bloco": row["ID"],
                 "Item": row["Item"],
                 "Reverso": row["Reverso"], # Adicionado para cálculo
                 "Resposta": resposta_usuario if resposta_usuario is not None else "N/A"
