@@ -206,7 +206,7 @@ for bloco in blocos:
     df_bloco = df_itens[df_itens["Bloco"] == bloco]
     
     # Extrai o prefixo (as duas primeiras letras) do ID do primeiro item do bloco
-    prefixo_bloco = df_bloco['ID']
+    prefixo_bloco = df_bloco['ID'].iloc[0][:2] if not df_bloco.empty else bloco
     
     # Usa o prefixo como o título do expander
     with st.expander(f"{prefixo_bloco}", expanded=bloco == blocos[0]):
