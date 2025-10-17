@@ -220,15 +220,11 @@ for bloco in blocos:
                 key=widget_key, on_change=registrar_resposta, args=(key, widget_key)
             )
 
-# --- BOTÃO DE CÁLCULO E ENVIO PARA GOOGLE SHEETS ---
 # --- BOTÃO DE CÁLCULO, ENVIO E VISUALIZAÇÃO ---
 if st.button("Finalizar e Enviar Respostas", type="primary"):
     if not st.session_state.respostas:
         st.warning("Nenhuma resposta foi preenchida.")
     else:
-        # ----------------------------------------------------------------------
-        # PARTE 1: ENVIO PARA O GOOGLE SHEETS (LÓGICA ORIGINAL)
-        # ----------------------------------------------------------------------
         st.subheader("Enviando Respostas...")
         
         # Formata os dados para a lista de envio
@@ -268,70 +264,10 @@ if st.button("Finalizar e Enviar Respostas", type="primary"):
             except Exception as e:
                 st.error(f"Erro ao enviar dados para a planilha: {e}")
         
-        # ----------------------------------------------------------------------
-        # PARTE 2: CÁLCULO E EXIBIÇÃO DOS RESULTADOS (NOVO TRECHO ADAPTADO)
-        # ----------------------------------------------------------------------
-        st.subheader("Análise dos Resultados")
-
-        # Cria um DataFrame a partir da lista de respostas já populada
-        dfr = pd.DataFrame(respostas_list)
-
-        # Filtra apenas as respostas que são numéricas para poder calcular
-        dfr_numerico = dfr[pd.to_numeric(dfr['Resposta'], errors='coerce').notna()].copy()
         
-        if not dfr_numerico.empty:
-            dfr_numerico['Resposta'] = dfr_numerico['Resposta'].astype(int)
-
-            # Função para inverter a pontuação de itens reversos (escala de 1 a 5)
-            def ajustar_reverso(row):
-                return (6 - row["Resposta"]) if row["Reverso"] == "SIM" else row["Resposta"]
-            
-            # Aplica a função para criar a coluna de pontuação final
-            dfr_numerico["Pontuação"] = dfr_numerico.apply(ajustar_reverso, axis=1)
-
-            # Calcula a pontuação média geral (Score Global)
-            score_global = dfr_numerico['Pontuação'].mean()
-            
-            # Define a interpretação com base no Score Global
-            if score_global >= 4.20: interpretacao = "Excelente"
-            elif score_global >= 3.60: interpretacao = "Bom"
-            elif score_global >= 2.80: interpretacao = "Atenção"
-            else: interpretacao = "Crítico"
-
-            # Prepara o resumo das médias por Bloco
-            resumo_blocos = dfr_numerico.groupby("Bloco")['Pontuação'].mean().reset_index()
-            resumo_blocos = resumo_blocos.rename(columns={"Pontuação": "Média"})
-
-            # Exibe a métrica principal do Score Global
-            st.metric(f"Score Global: {interpretacao}", f"{score_global:.2f}")
-
-            # Exibe a tabela e o gráfico com os resultados
-            if not resumo_blocos.empty:
-                st.subheader("Média por Bloco")
-                st.dataframe(resumo_blocos, use_container_width=True, hide_index=True)
-                
-                st.subheader("Gráfico Comparativo por Bloco")
-                
-                # --- CÓDIGO DO GRÁFICO DE PIZZA ---
-                # Cria a figura e os eixos do gráfico
-                fig, ax = plt.subplots()
-                
-                # Gera o gráfico de pizza
-                ax.pie(x=resumo_blocos["Média"], labels=resumo_blocos["Bloco"], autopct='%1.1f%%', startangle=90)
-                
-                # Garante que o gráfico seja um círculo
-                ax.axis('equal')  
-                
-                # Exibe o gráfico gerado no Streamlit
-                st.pyplot(fig)
-                # --- FIM DO CÓDIGO DO GRÁFICO DE PIZZA ---
-        else:
-            # Caso não haja respostas numéricas para analisar
-            st.warning("Não há respostas numéricas suficientes para gerar uma análise.")
-
-            with st.container():
-                st.markdown('<div id="autoclick-div">', unsafe_allow_html=True)
-                if st.button("Ping Button", key="autoclick_button"):
-                # A ação aqui pode ser um simples print no log do Streamlit
-                  print("Ping button clicked by automation.")
-                st.markdown('</div>', unsafe_allow_html=True)
+with st.empty():
+    st.markdown('<div id="autoclick-div">', unsafe_allow_html=True)
+    if st.button("Ping Button", key="autoclick_button"):
+    # A ação aqui pode ser um simples print no log do Streamlit
+        print("Ping button clicked by automation.")
+    st.markdown('</div>', unsafe_allow_html=True)
