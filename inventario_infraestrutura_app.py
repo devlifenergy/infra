@@ -220,11 +220,26 @@ for bloco in blocos:
                 key=widget_key, on_change=registrar_resposta, args=(key, widget_key)
             )
 
-# --- BOTÃO DE CÁLCULO, ENVIO E VISUALIZAÇÃO ---
-if st.button("Finalizar e Enviar Respostas", type="primary"):
-    if not st.session_state.respostas:
-        st.warning("Nenhuma resposta foi preenchida.")
-    else:
+# --- VALIDAÇÃO E BOTÃO DE FINALIZAR (MOVIDO PARA O FINAL) ---
+# Calcula o número de respostas válidas (excluindo N/A)
+respostas_validas_contadas = 0
+if 'respostas' in st.session_state:
+    for resposta in st.session_state.respostas.values():
+        if resposta is not None and resposta != "N/A":
+            respostas_validas_contadas += 1
+
+total_perguntas = len(df_itens)
+limite_respostas = total_perguntas / 2
+
+# Determina se o botão deve ser desabilitado
+botao_desabilitado = respostas_validas_contadas < limite_respostas
+
+# Exibe aviso se o botão estiver desabilitado
+if botao_desabilitado:
+    st.warning(f"Responda 50% das perguntas (excluindo 'N/A') para habilitar o envio. ({respostas_validas_contadas}/{total_perguntas} válidas)")
+
+# Botão Finalizar com estado dinâmico (habilitado/desabilitado)
+if st.button("Finalizar e Enviar Respostas", type="primary", disabled=botao_desabilitado):
         st.subheader("Enviando Respostas...")
         
         # Formata os dados para a lista de envio
