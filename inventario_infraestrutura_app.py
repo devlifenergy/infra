@@ -308,6 +308,20 @@ else:
             # Formata os dados para a lista de envio
             respostas_list = []
             for index, row in df_itens.iterrows():
+
+                resposta = row["Resposta"]
+                pontuacao = "N/A" # Valor padrão se for N/A ou None
+                    
+                if pd.notna(resposta) and resposta != "N/A":
+                    try:
+                        valor = int(resposta)
+                        if row["Reverso"] == "SIM":
+                            pontuacao = 6 - valor # Inverte: 1->5, 2->4, etc.
+                        else:
+                            pontuacao = valor # Normal
+                    except ValueError:
+                        pass
+
                 item_id = row['Bloco']
                 resposta_usuario = st.session_state.respostas.get(item_id)
                 respostas_list.append({
