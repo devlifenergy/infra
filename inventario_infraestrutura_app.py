@@ -321,11 +321,16 @@ else:
             with st.spinner("Enviando dados para a planilha..."):
                 try:
                     timestamp_str = datetime.now().isoformat(timespec="seconds")
+
+                    nome_limpo = organizacao_coletora.strip().upper()
+                    id_organizacao = hashlib.md5(nome_limpo.encode('utf-8')).hexdigest()[:8].upper()
+
                     respostas_para_enviar = []
                     # Usamos a `respostas_list` já formatada
                     for item in respostas_list:
                         respostas_para_enviar.append([
                             timestamp_str,
+                            id_organizacao,
                             respondente,
                             data,
                             org_coletora_valida,
