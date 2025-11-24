@@ -108,23 +108,21 @@ if ws_respostas is None:
 
 
 # --- CABEÇALHO DA APLICAÇÃO ---
-col1, col2 = st.columns([1, 3])
+col1, col2 = st.columns([1, 4])
 with col1:
     try:
         st.image("logo_wedja.jpg", width=120)
     except FileNotFoundError:
         st.warning("Logo 'logo_wedja.jpg' não encontrada.")
 with col2:
-    st.markdown("""
+    st.markdown(f"""
     <div style="display: flex; align-items: center; height: 100%;">
-        <h1 style='text-align: left; color: black;'>INVENTÁRIO DE INFRAESTRUTURA</h1>
+        <h1 style='color: {COLOR_TEXT_DARK}; margin: 0; padding: 0;'>INVENTÁRIO DE INFRAESTRUTURA</h1>
     </div>
     """, unsafe_allow_html=True)
 
-
 # --- CAMPOS DE IDENTIFICAÇÃO ---
-with st.container(border=True):
-    st.markdown("<h3 style='text-align: center;'>Identificação</h3>", unsafe_allow_html=True)
+with st.container(border=False):
     link_valido = False # Começa como inválido por padrão
 
 try:
@@ -301,64 +299,91 @@ else:
     if botao_desabilitado:
         st.warning(f"Responda 50% das perguntas (excluindo 'N/A') para habilitar o envio. ({respostas_validas_contadas}/{total_perguntas} válidas)")
 
-    # Botão Finalizar com estado dinâmico (habilitado/desabilitado)
-    if st.button("Finalizar e Enviar Respostas", type="primary", disabled=botao_desabilitado):
-            st.subheader("Enviando Respostas...")
-            
-            # Formata os dados para a lista de envio
-            respostas_list = []
-            for index, row in df_itens.iterrows():
+    # --- BOTÃO DE FINALIZAR E LÓGICA DE RESULTADOS/EXPORTAÇÃO ---
+if st.button("Finalizar e Enviar Respostas", type="primary"):
+    if not st.session_state.respostas:
+        st.warning("Nenhuma resposta foi preenchida.")
+    else:
+        st.subheader("Enviando Respostas...")
 
-                resposta = row["Resposta"]
-                pontuacao = "N/A" # Valor padrão se for N/A ou None
+        # 1. Cria o DataFrame com as respostas capturadas
+        respostas_list = []
+        for index, row in df_itens.iterrows():
+            item_id = row['ID']
+            resposta_usuario = st.session_state.respostas.get(item_id)
+            respostas_list.append({
+                "Bloco": row["Bloco"],
+                "ID": row["ID"],
+                "Item": row["Item"],
+                "Reverso": row["Reverso"],
+                "Resposta": resposta_usuario if resposta_usuario is not None else "N/A"
+            })
+        dfr = pd.DataFrame(respostas_list)
+
+        # Cálculo para exibição na tela (Métricas e Gráficos)
+        dfr_numerico = dfr[pd.to_numeric(dfr['Resposta'], errors='coerce').notna()].copy()
+        if not dfr_numerico.empty:
+            dfr_numerico['Resposta'] = dfr_numerico['Resposta'].astype(int)
+            def ajustar_reverso_tela(row):
+                return (6 - row["Resposta"]) if row["Reverso"] == "SIM" else row["Resposta"]
+            dfr_numerico["Pontuação"] = dfr_numerico.apply(ajustar_reverso_tela, axis=1)
+            media_geral = dfr_numerico["Pontuação"].mean()
+            resumo_blocos = dfr_numerico.groupby("Bloco")["Pontuação"].mean().round(2).reset_index(name="Média").sort_values("Média")
+        else:
+            media_geral = 0
+            resumo_blocos = pd.DataFrame(columns=["Bloco", "Média"])
+        
+        # 2. Lógica de Envio para o Google Sheets
+        with st.spinner("Enviando dados para a planilha..."):
+            try:
+                timestamp_str = datetime.now().isoformat(timespec="seconds")
+                
+                # Geração do ID da Organização (Hash)
+                # Usa o valor validado 'organizacao_coletora' (que vem do link seguro)
+                nome_limpo = organizacao_coletora.strip().upper()
+                id_organizacao = hashlib.md5(nome_limpo.encode('utf-8')).hexdigest()[:8].upper()
+
+                respostas_para_enviar = []
+                
+                # ##### CORREÇÃO: Iteramos sobre 'dfr', que contém a coluna 'Resposta' #####
+                for _, row in dfr.iterrows():
+                    # Lógica de Cálculo da Pontuação para Envio
+                    resposta_valor = row["Resposta"]
+                    pontuacao_final = "" # Valor padrão se for N/A
                     
-                if pd.notna(resposta) and resposta != "N/A":
-                    try:
-                        valor = int(resposta)
-                        if row["Reverso"] == "SIM":
-                            pontuacao = 6 - valor # Inverte: 1->5, 2->4, etc.
-                        else:
-                            pontuacao = valor # Normal
-                    except ValueError:
-                        pass
+                    if resposta_valor != "N/A" and pd.notna(resposta_valor):
+                        try:
+                            val_int = int(resposta_valor)
+                            if row["Reverso"] == "SIM":
+                                pontuacao_final = 6 - val_int # Inverte
+                            else:
+                                pontuacao_final = val_int # Normal
+                        except ValueError:
+                            pontuacao_final = "" 
 
-                item_id = row['Bloco']
-                resposta_usuario = st.session_state.respostas.get(item_id)
-                respostas_list.append({
-                    "Bloco": row["ID"],
-                    "Item": row["Item"],
-                    "Reverso": row["Reverso"], # Adicionado para cálculo
-                    "Resposta": resposta_usuario if resposta_usuario is not None else "N/A"
-                })
-                    
-            # Envia para o Google Sheets
-            with st.spinner("Enviando dados para a planilha..."):
-                try:
-                    timestamp_str = datetime.now().isoformat(timespec="seconds")
+                    # Monta a linha para o Google Sheets
+                    respostas_para_enviar.append([
+                        timestamp_str,
+                        id_organizacao,
+                        respondente,
+                        data, # Data do preenchimento
+                        organizacao_coletora, # Nome da organização
+                        row["Bloco"],
+                        # Combina ID e Item para ficar igual aos outros formulários (ex: "IF01 - O espaço...")
+                        f"{row['ID']} - {row['Item']}", 
+                        str(resposta_valor),
+                        pontuacao_final
+                    ])
+                
+                # Envia tudo de uma vez
+                ws_respostas.append_rows(respostas_para_enviar, value_input_option='USER_ENTERED')
 
-                    nome_limpo = organizacao_coletora.strip().upper()
-                    id_organizacao = hashlib.md5(nome_limpo.encode('utf-8')).hexdigest()[:8].upper()
-
-                    respostas_para_enviar = []
-                    # Usamos a `respostas_list` já formatada
-                    for item in respostas_list:
-                        respostas_para_enviar.append([
-                            timestamp_str,
-                            id_organizacao,
-                            respondente,
-                            data,
-                            org_coletora_valida,
-                            item["Bloco"],
-                            item["Item"],
-                            item["Resposta"]
-                        ])
-                    
-                    ws_respostas.append_rows(respostas_para_enviar, value_input_option='USER_ENTERED')
-
-                    st.success("Suas respostas foram enviadas com sucesso!")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Erro ao enviar dados para a planilha: {e}")
+                # Se houver observações, envia para a aba de observações (se configurada)
+        
+                st.success("Suas respostas foram enviadas com sucesso para a planilha!")
+                st.balloons()
+            except Exception as e:
+                st.error(f"Erro ao enviar dados para a planilha: {e}")
             
 with st.empty():
     st.markdown('<div id="autoclick-div">', unsafe_allow_html=True)
